@@ -18,7 +18,6 @@ import (
 	"hash/fnv"
 	"net"
 	"net/url"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -506,50 +505,28 @@ func TargetsFromGroup(tg *targetgroup.Group, cfg *config.ScrapeConfig) ([]*Targe
 
 // buildTargetLabels builds final target labels based on the given target label set, target group label set and scrape config.
 func buildTargetLabels(targetLSet, targetGroupLSet model.LabelSet, cfg *config.ScrapeConfig) labels.Labels {
-	labelsMap := make(map[string]string, len(targetLSet)+len(targetGroupLSet))
-	// Labels from scrape config.
-	scrapeLabels := []labels.Label{
+	labelsBuilder := labels.NewBuilder([]labels.Label{
 		{Name: model.JobLabel, Value: cfg.JobName},
 		{Name: model.ScrapeIntervalLabel, Value: cfg.ScrapeInterval.String()},
 		{Name: model.ScrapeTimeoutLabel, Value: cfg.ScrapeTimeout.String()},
 		{Name: model.MetricsPathLabel, Value: cfg.MetricsPath},
 		{Name: model.SchemeLabel, Value: cfg.Scheme},
-	}
-	for _, l := range scrapeLabels {
-		labelsMap[l.Name] = l.Value
-	}
+	})
 	// Target group labels.
 	for ln, lv := range targetGroupLSet {
-		set(labelsMap, string(ln), string(lv))
+		labelsBuilder.Set(string(ln), string(lv))
 	}
 
 	// Target labels.
 	for ln, lv := range targetLSet {
-		set(labelsMap, string(ln), string(lv))
+		labelsBuilder.Set(string(ln), string(lv))
 	}
 
 	// Labels from config query params.
 	for k, v := range cfg.Params {
 		if len(v) > 0 {
-			set(labelsMap, model.ParamLabelPrefix+k, v[0])
+			labelsBuilder.Set(model.ParamLabelPrefix+k, v[0])
 		}
 	}
-	return buildLabels(labelsMap)
-}
-
-func buildLabels(ls map[string]string) labels.Labels {
-	var result labels.Labels = make([]labels.Label, 0, len(ls))
-	for k, v := range ls {
-		result = append(result, labels.Label{Name: k, Value: v})
-	}
-	sort.Sort(result)
-	return result
-}
-
-func set(ls map[string]string, k, v string) {
-	if len(v) == 0 {
-		delete(ls, k)
-	} else {
-		ls[k] = v
-	}
+	return labelsBuilder.Labels()
 }

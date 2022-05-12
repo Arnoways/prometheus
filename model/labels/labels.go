@@ -384,91 +384,49 @@ func Compare(a, b Labels) int {
 	return len(a) - len(b)
 }
 
-// Builder allows modifying Labels.
 type Builder struct {
-	base Labels
-	del  []string
-	add  []Label
+	result map[string]string
 }
 
-// NewBuilder returns a new LabelsBuilder.
 func NewBuilder(base Labels) *Builder {
-	b := &Builder{
-		del: make([]string, 0, 5),
-		add: make([]Label, 0, 5),
-	}
-	b.Reset(base)
-	return b
+	b := &Builder{}
+	return b.Reset(base)
 }
 
 // Reset clears all current state for the builder.
-func (b *Builder) Reset(base Labels) {
-	b.base = base
-	b.del = b.del[:0]
-	b.add = b.add[:0]
-	for _, l := range b.base {
-		if l.Value == "" {
-			b.del = append(b.del, l.Name)
+func (b *Builder) Reset(base Labels) *Builder {
+	r := make(map[string]string, len(base))
+	for _, lb := range base {
+		if len(lb.Value) > 0 {
+			r[lb.Name] = lb.Value
 		}
 	}
+	b.result = r
+	return b
 }
 
 // Del deletes the label of the given name.
 func (b *Builder) Del(ns ...string) *Builder {
 	for _, n := range ns {
-		for i, a := range b.add {
-			if a.Name == n {
-				b.add = append(b.add[:i], b.add[i+1:]...)
-			}
-		}
-		b.del = append(b.del, n)
+		delete(b.result, n)
 	}
 	return b
 }
 
 // Set the name/value pair as a label.
 func (b *Builder) Set(n, v string) *Builder {
-	if v == "" {
-		// Empty labels are the same as missing labels.
+	if len(v) == 0 {
 		return b.Del(n)
 	}
-	for i, a := range b.add {
-		if a.Name == n {
-			b.add[i].Value = v
-			return b
-		}
-	}
-	b.add = append(b.add, Label{Name: n, Value: v})
-
+	b.result[n] = v
 	return b
 }
 
-// Labels returns the labels from the builder. If no modifications
-// were made, the original labels are returned.
 func (b *Builder) Labels() Labels {
-	if len(b.del) == 0 && len(b.add) == 0 {
-		return b.base
+	var result Labels = make([]Label, 0, len(b.result))
+	for k, v := range b.result {
+		result = append(result, Label{Name: k, Value: v})
 	}
-
-	// In the general case, labels are removed, modified or moved
-	// rather than added.
-	res := make(Labels, 0, len(b.base))
-Outer:
-	for _, l := range b.base {
-		for _, n := range b.del {
-			if l.Name == n {
-				continue Outer
-			}
-		}
-		for _, la := range b.add {
-			if l.Name == la.Name {
-				continue Outer
-			}
-		}
-		res = append(res, l)
-	}
-	res = append(res, b.add...)
-	sort.Sort(res)
-
-	return res
+	sort.Sort(result)
+	return result
 }
