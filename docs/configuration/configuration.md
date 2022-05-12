@@ -289,6 +289,10 @@ nerve_sd_configs:
 openstack_sd_configs:
   [ - <openstack_sd_config> ... ]
 
+# List of OvhCloud service discovery configurations.
+ovhcloud_sd_configs:
+  [ - <ovhcloud_sd_config> ... ]
+
 # List of PuppetDB service discovery configurations.
 puppetdb_sd_configs:
   [ - <puppetdb_sd_config> ... ]
@@ -1160,6 +1164,65 @@ region: <string>
 tls_config:
   [ <tls_config> ]
 ```
+### `<ovhcloud_sd_configs>`
+OvhCloud SD configurations allow  retrieving scrape targets from
+
+#### Vps servers
+* `__meta_ovhcloud_vps_ipv4`: the ipv4 of the server
+* `__meta_ovhcloud_vps_ipv6`: the ipv6 of the server
+* `__meta_ovhcloud_vps_keymap`: the KVM keyboard layout on VPS Cloud
+* `__meta_ovhcloud_vps_zone`: the zone of the server
+* `__meta_ovhcloud_vps_maximumAdditionalIp`: the maximumAdditionalIp of the server
+* `__meta_ovhcloud_vps_offer`: the offer of the server
+* `__meta_ovhcloud_vps_datacenter`: the datacenter of the server
+* `__meta_ovhcloud_vps_vcore`: the vcore of the server
+* `__meta_ovhcloud_vps_version`: the version of the server
+* `__meta_ovhcloud_vps_name`: the name of the server
+* `__meta_ovhcloud_vps_disk`: the disk of the server
+* `__meta_ovhcloud_vps_availableOptions`: the availableOptions of the server
+* `__meta_ovhcloud_vps_memory`: the memory of the server
+* `__meta_ovhcloud_vps_displayName`: the name displayed in ManagerV6 for your VPS (max 50 chars)
+* `__meta_ovhcloud_vps_monitoringIpBlocks`: the Ip blocks for OVH monitoring servers
+* `__meta_ovhcloud_vps_cluster`: the cluster of the server
+* `__meta_ovhcloud_vps_state`: the state of the server
+* `__meta_ovhcloud_vps_name`: the name of the server
+* `__meta_ovhcloud_vps_slaMonitoring`: the slaMonitoring of the server
+* `__meta_ovhcloud_vps_netbootMode`: the netbootMode of the server
+* `__meta_ovhcloud_vps_memoryLimit`: the memoryLimit of the server
+* `__meta_ovhcloud_vps_offerType`: the offerType of the server
+* `__meta_ovhcloud_vps_vcore`: the vcore of the server
+
+#### Dedicated servers
+* `__meta_ovhcloud_dedicated_server_professionalUse`: Does this server have professional use option
+* `__meta_ovhcloud_dedicated_server_state`: the state of the server
+* `__meta_ovhcloud_dedicated_server_rescueMail`: the rescueMail of the server
+* `__meta_ovhcloud_dedicated_server_newUpgradeSystem`: the newUpgradeSystem of the server
+* `__meta_ovhcloud_dedicated_server_ipv4`: the ipv4 of the server
+* `__meta_ovhcloud_dedicated_server_commercialRange`: the dedicater server commercial range
+* `__meta_ovhcloud_dedicated_server_linkSpeed`: the linkSpeed of the server
+* `__meta_ovhcloud_dedicated_server_rack`: the rack of the server
+* `__meta_ovhcloud_dedicated_server_noIntervention`: Prevent datacenter intervention
+* `__meta_ovhcloud_dedicated_server_os`: Operating system
+* `__meta_ovhcloud_dedicated_server_supportLevel`: the supportLevel of the server
+* `__meta_ovhcloud_dedicated_server_rootDevice`: the rootDevice of the server
+* `__meta_ovhcloud_dedicated_server_serverId`: your server id
+* `__meta_ovhcloud_dedicated_server_bootId`: the bootId of the server
+* `__meta_ovhcloud_dedicated_server_reverse`: dedicated server reverse
+* `__meta_ovhcloud_dedicated_server_datacenter`: the dedicated datacenter localisation
+* `__meta_ovhcloud_dedicated_server_name`: the dedicated server name
+* `__meta_ovhcloud_dedicated_server_monitoring`: the Icmp monitoring state
+
+See below for the configuration options for Ovhcloud discovery:
+
+```yaml
+# Access key to use. https://api.ovh.com
+application_key: <string>
+application_secret: <string>
+consumer_key: <string>
+endpoint: <string>
+
+# Refresh interval to re-read the resources list.
+[ refresh_interval: <duration> | default = 60s ]
 
 ### `<puppetdb_sd_config>`
 
@@ -2792,6 +2855,10 @@ nerve_sd_configs:
 # List of OpenStack service discovery configurations.
 openstack_sd_configs:
   [ - <openstack_sd_config> ... ]
+
+# List of OvhCloud service discovery configurations.
+ovhcloud_sd_configs:
+  [ - <ovhcloud_sd_config> ... ]
 
 # List of PuppetDB service discovery configurations.
 puppetdb_sd_configs:

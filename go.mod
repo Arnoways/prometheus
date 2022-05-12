@@ -20,10 +20,12 @@ require (
 	github.com/edsrzf/mmap-go v1.1.0
 	github.com/envoyproxy/go-control-plane v0.10.2-0.20220325020618-49ff273808a1
 	github.com/envoyproxy/protoc-gen-validate v0.6.7
+	github.com/fatih/structs v1.1.0
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/go-kit/log v0.2.0
 	github.com/go-logfmt/logfmt v0.5.1
 	github.com/go-openapi/strfmt v0.21.2
+	github.com/go-playground/validator/v10 v10.4.1
 	github.com/go-zookeeper/zk v1.0.2
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v0.0.4
@@ -36,6 +38,7 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.2.0 // indirect
 	github.com/hetznercloud/hcloud-go v1.33.1
 	github.com/ionos-cloud/sdk-go/v6 v6.0.5851
+	github.com/jarcoal/httpmock v1.2.0
 	github.com/json-iterator/go v1.1.12
 	github.com/kolo/xmlrpc v0.0.0-20201022064351-38db28db192b
 	github.com/linode/linodego v1.4.1
@@ -45,6 +48,7 @@ require (
 	github.com/oklog/run v1.1.0
 	github.com/oklog/ulid v1.3.1
 	github.com/opencontainers/image-spec v1.0.2 // indirect
+	github.com/ovh/go-ovh v1.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/alertmanager v0.24.0
 	github.com/prometheus/client_golang v1.12.1
@@ -77,8 +81,10 @@ require (
 	google.golang.org/grpc v1.46.0
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
+	gopkg.in/h2non/gock.v1 v1.1.2
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+	inet.af/netaddr v0.0.0-20211027220019-c74959edd3b6
 	k8s.io/api v0.23.6
 	k8s.io/apimachinery v0.23.6
 	k8s.io/client-go v0.23.5
