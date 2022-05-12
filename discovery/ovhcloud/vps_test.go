@@ -1,0 +1,303 @@
+package ovhcloud
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"testing"
+
+	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/util/testutil"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/h2non/gock.v1"
+)
+
+type VpsData struct {
+	Vps    Vps
+	Err    error
+	IPs    []string
+	IPsErr error
+}
+
+func initMockErrorVpsList(err error) {
+	initMockAuth(123562)
+	gock.New(mockURL).
+		MatchHeader("Accept", "application/json").
+		Get("/vps").
+		ReplyError(err)
+}
+
+func initMockVps(vpsList map[string]VpsData) {
+	initMockAuth(123562)
+
+	var vpsListName []string
+	for vpsName := range vpsList {
+		vpsListName = append(vpsListName, vpsName)
+	}
+
+	gock.New(mockURL).
+		MatchHeader("Accept", "application/json").
+		Get("/vps").
+		Reply(200).
+		JSON(vpsListName)
+
+	for vpsName := range vpsList {
+		if vpsList[vpsName].Err != nil {
+			gock.New(mockURL).
+				MatchHeader("Accept", "application/json").
+				Get(fmt.Sprintf("/vps/%s", vpsName)).
+				ReplyError(vpsList[vpsName].Err)
+		} else {
+			gock.New(mockURL).
+				MatchHeader("Accept", "application/json").
+				Get(fmt.Sprintf("/vps/%s", vpsName)).
+				Reply(200).
+				JSON(vpsList[vpsName].Vps)
+			if vpsList[vpsName].IPsErr != nil {
+				gock.New(mockURL).
+					MatchHeader("Accept", "application/json").
+					Get(fmt.Sprintf("/vps/%s/ips", vpsName)).
+					ReplyError(vpsList[vpsName].IPsErr)
+			} else {
+				gock.New(mockURL).
+					MatchHeader("Accept", "application/json").
+					Get(fmt.Sprintf("/vps/%s/ips", vpsName)).
+					Reply(200).
+					JSON(vpsList[vpsName].IPs)
+			}
+		}
+	}
+}
+
+func TestVpsErrorOnList(t *testing.T) {
+	defer gock.Off()
+
+	initMockMe(12345, map[string]string{"name": "test_name"})
+
+	errTest := errors.New("Error on get list")
+	initMockErrorVpsList(errTest)
+
+	conf, err := getMockConf()
+	require.NoError(t, err)
+
+	logger := testutil.NewLogger(t)
+	d := newVpsDiscovery(&conf, logger)
+
+	ctx := context.Background()
+	_, err = d.refresh(ctx)
+	require.ErrorIs(t, err, errTest)
+
+	// Verify that we don't have pending mocks
+	require.Equal(t, gock.IsDone(), true)
+}
+
+func TestVpsWithBadConf(t *testing.T) {
+	defer gock.Off()
+
+	initMockMe(12345, map[string]string{"name": "test_name"})
+
+	conf, err := getMockConf()
+	require.NoError(t, err)
+
+	conf.ApplicationKey = ""
+	logger := testutil.NewLogger(t)
+	d := newVpsDiscovery(&conf, logger)
+
+	ctx := context.Background()
+	_, err = d.refresh(ctx)
+	require.ErrorContains(t, err, "missing application key")
+
+	// Verify that we don't have pending mocks
+	require.Equal(t, gock.IsDone(), true)
+}
+
+func TestVpsErrorOnDetail(t *testing.T) {
+	defer gock.Off()
+
+	initMockMe(12345, map[string]string{"name": "test_name"})
+
+	errTest := errors.New("Error on get list")
+	modelV := Model{
+		Name:                "model name test",
+		Disk:                40,
+		MaximumAdditionalIP: 1,
+		Memory:              2048,
+		Offer:               "VPS abc",
+		Version:             "2019v1",
+		Vcore:               1,
+	}
+
+	vps := Vps{
+		Model:       modelV,
+		Zone:        "zone",
+		Cluster:     "cluster_test",
+		DisplayName: "test_name",
+		Name:        "abc",
+		NetbootMode: "local",
+		State:       "running",
+		MemoryLimit: 2048,
+		OfferType:   "ssd",
+	}
+
+	vpsMap := map[string]VpsData{"abc": {Vps: vps, IPs: []string{"1.2.3.4", "aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111"}}, "def": {Err: errTest}}
+	initMockVps(vpsMap)
+
+	conf, err := getMockConf()
+	require.NoError(t, err)
+
+	logger := testutil.NewLogger(t)
+	d := newVpsDiscovery(&conf, logger)
+
+	ctx := context.Background()
+	tgs, err := d.refresh(ctx)
+	// When we have an error on a detail, we continue and the server is skipped
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(tgs))
+
+	tgVps := tgs[0]
+
+	require.NotNil(t, tgVps)
+	require.NotNil(t, tgVps.Targets)
+	require.Equal(t, 1, len(tgVps.Targets))
+
+	// Verify that we don't have pending mocks
+	require.Equal(t, gock.IsDone(), true)
+}
+
+func TestVpsErrorOnIps(t *testing.T) {
+	defer gock.Off()
+
+	initMockMe(12345, map[string]string{"name": "test_name"})
+
+	errTest := errors.New("Error on get list")
+	modelV := Model{
+		Name:                "model name test",
+		Disk:                40,
+		MaximumAdditionalIP: 1,
+		Memory:              2048,
+		Offer:               "VPS abc",
+		Version:             "2019v1",
+		Vcore:               1,
+	}
+
+	vps := Vps{
+		Model:       modelV,
+		Zone:        "zone",
+		Cluster:     "cluster_test",
+		DisplayName: "test_name",
+		Name:        "abc",
+		NetbootMode: "local",
+		State:       "running",
+		MemoryLimit: 2048,
+		OfferType:   "ssd",
+	}
+
+	vpsMap := map[string]VpsData{"abc": {Vps: vps, IPs: []string{"1.2.3.4", "aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111"}}, "def": {Vps: vps, IPsErr: errTest}}
+	initMockVps(vpsMap)
+
+	conf, err := getMockConf()
+	require.NoError(t, err)
+
+	logger := testutil.NewLogger(t)
+	d := newVpsDiscovery(&conf, logger)
+
+	ctx := context.Background()
+	tgs, err := d.refresh(ctx)
+	// When we have an error on a detail, we continue and the server is skipped
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(tgs))
+
+	tgVps := tgs[0]
+
+	require.NotNil(t, tgVps)
+	require.NotNil(t, tgVps.Targets)
+	require.Equal(t, 1, len(tgVps.Targets))
+
+	// Verify that we don't have pending mocks
+	require.Equal(t, gock.IsDone(), true)
+}
+
+func TestVpsRefresh(t *testing.T) {
+
+	defer gock.Off()
+
+	initMockMe(12345, map[string]string{"name": "test_name"})
+
+	modelV := Model{
+		Name:                "model name test",
+		Disk:                40,
+		MaximumAdditionalIP: 1,
+		Memory:              2048,
+		Offer:               "VPS abc",
+		Version:             "2019v1",
+		Vcore:               1,
+	}
+
+	vps := Vps{
+		Model:       modelV,
+		Zone:        "zone",
+		Cluster:     "cluster_test",
+		DisplayName: "test_name",
+		Name:        "abc",
+		NetbootMode: "local",
+		State:       "running",
+		MemoryLimit: 2048,
+		OfferType:   "ssd",
+	}
+
+	vpsMap := map[string]VpsData{"abc": {Vps: vps, IPs: []string{"1.2.3.4", "aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111"}}}
+	initMockVps(vpsMap)
+
+	conf, err := getMockConf()
+	require.NoError(t, err)
+
+	//	conf.Endpoint = mockURL
+	logger := testutil.NewLogger(t)
+	d := newVpsDiscovery(&conf, logger)
+
+	ctx := context.Background()
+	tgs, err := d.refresh(ctx)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(tgs))
+
+	tgVps := tgs[0]
+	require.NotNil(t, tgVps)
+	require.NotNil(t, tgVps.Targets)
+	require.Equal(t, 1, len(tgVps.Targets))
+
+	for i, lbls := range []model.LabelSet{
+		{
+			"__address__":                             "1.2.3.4",
+			"__meta_ovhcloud_vps_ipv4":                "1.2.3.4",
+			"__meta_ovhcloud_vps_ipv6":                "aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111",
+			"__meta_ovhcloud_vps_cluster":             "cluster_test",
+			"__meta_ovhcloud_vps_datacenter":          "[]",
+			"__meta_ovhcloud_vps_disk":                "40",
+			"__meta_ovhcloud_vps_displayName":         "test_name",
+			"__meta_ovhcloud_vps_maximumAdditionalIp": "1",
+			"__meta_ovhcloud_vps_memory":              "2048",
+			"__meta_ovhcloud_vps_memoryLimit":         "2048",
+			"__meta_ovhcloud_vps_model_name":          "model name test",
+			"__meta_ovhcloud_vps_name":                "abc",
+			"__meta_ovhcloud_vps_netbootMode":         "local",
+			"__meta_ovhcloud_vps_offer":               "VPS abc",
+			"__meta_ovhcloud_vps_offerType":           "ssd",
+			"__meta_ovhcloud_vps_slaMonitoring":       "false",
+			"__meta_ovhcloud_vps_state":               "running",
+			"__meta_ovhcloud_vps_vcore":               "1",
+			"__meta_ovhcloud_vps_version":             "2019v1",
+			"__meta_ovhcloud_vps_zone":                "zone",
+			"instance":                                "abc",
+		},
+	} {
+		t.Run(fmt.Sprintf("item %d", i), func(t *testing.T) {
+			require.Equal(t, lbls, tgVps.Targets[i])
+		})
+	}
+
+	// Verify that we don't have pending mocks
+	require.Equal(t, gock.IsDone(), true)
+}
