@@ -55,11 +55,6 @@ func addFieldsOnLabels(fields []*structs.Field, labels model.LabelSet, prefix st
 	}
 }
 
-// DefaultSDConfig is the default Ovhcloud Service Discovery configuration.
-var DefaultSDConfig = SDConfig{
-	RefreshInterval: model.Duration(60 * time.Second),
-}
-
 type refresher interface {
 	refresh(context.Context) ([]*targetgroup.Group, error)
 	getSource() string
@@ -100,7 +95,6 @@ func (c SDConfig) Name() string {
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (c *SDConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	*c = DefaultSDConfig
 	type plain SDConfig
 	err := unmarshal((*plain)(c))
 	if err != nil {
@@ -144,7 +138,7 @@ func ParseIPList(ipList []string) (*IPs, error) {
 	var IPs IPs
 	for _, ip := range ipList {
 		netIP, err := netaddr.ParseIP(ip)
-		if err == nil && netIP.IsValid() && !netIP.IsZero() {
+		if err == nil && !netIP.IsUnspecified() {
 			if netIP.Is4() {
 				IPs.IPV4 = ip
 			} else if netIP.Is6() {
@@ -152,6 +146,7 @@ func ParseIPList(ipList []string) (*IPs, error) {
 			}
 		}
 	}
+
 	if IPs.IPV4 == "" && IPs.IPV6 == "" {
 		return nil, errors.New("Could not parse IP addresses from list.")
 	}

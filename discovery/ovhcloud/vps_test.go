@@ -129,7 +129,7 @@ func TestVpsErrorOnDetail(t *testing.T) {
 
 	initMockMe(12345, map[string]string{"name": "test_name"})
 
-	errTest := errors.New("error on get list")
+	errTest := errors.New("error on get detail")
 	modelV := Model{
 		Name:                "model name test",
 		Disk:                40,
@@ -183,7 +183,7 @@ func TestVpsErrorOnIps(t *testing.T) {
 
 	initMockMe(12345, map[string]string{"name": "test_name"})
 
-	errTest := errors.New("error on get list")
+	errTest := errors.New("error on get ips")
 	modelV := Model{
 		Name:                "model name test",
 		Disk:                40,
@@ -227,6 +227,139 @@ func TestVpsErrorOnIps(t *testing.T) {
 	require.NotNil(t, tgVps)
 	require.NotNil(t, tgVps.Targets)
 	require.Equal(t, 1, len(tgVps.Targets))
+
+	// Verify that we don't have pending mocks
+	require.Equal(t, gock.IsDone(), true)
+}
+
+func TestBadIpVps(t *testing.T) {
+
+	defer gock.Off()
+
+	initMockMe(12345, map[string]string{"name": "test_name"})
+
+	modelV := Model{
+		Name:                "model name test",
+		Disk:                40,
+		MaximumAdditionalIP: 1,
+		Memory:              2048,
+		Offer:               "VPS abc",
+		Version:             "2019v1",
+		Vcore:               1,
+	}
+
+	vps := Vps{
+		Model:       modelV,
+		Zone:        "zone",
+		Cluster:     "cluster_test",
+		DisplayName: "test_name",
+		Name:        "abc",
+		NetbootMode: "local",
+		State:       "running",
+		MemoryLimit: 2048,
+		OfferType:   "ssd",
+	}
+
+	vpsMap := map[string]VpsData{"abc": {Vps: vps, IPs: []string{"1.2.3.4.6"}}}
+	initMockVps(vpsMap)
+
+	conf, err := getMockConf()
+	require.NoError(t, err)
+
+	//  conf.Endpoint = mockURL
+	logger := testutil.NewLogger(t)
+	d := newVpsDiscovery(&conf, logger)
+
+	ctx := context.Background()
+	tgs, err := d.refresh(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(tgs))
+
+	tgVps := tgs[0]
+	require.NotNil(t, tgVps)
+	require.Nil(t, tgVps.Targets)
+
+	// Verify that we don't have pending mocks
+	require.Equal(t, gock.IsDone(), true)
+}
+
+func TestVpsRefreshWithoutIPv4(t *testing.T) {
+	defer gock.Off()
+
+	initMockMe(12345, map[string]string{"name": "test_name"})
+
+	modelV := Model{
+		Name:                "model name test",
+		Disk:                40,
+		MaximumAdditionalIP: 1,
+		Memory:              2048,
+		Offer:               "VPS abc",
+		Version:             "2019v1",
+		Vcore:               1,
+	}
+
+	vps := Vps{
+		Model:       modelV,
+		Zone:        "zone",
+		Cluster:     "cluster_test",
+		DisplayName: "test_name",
+		Name:        "abc",
+		NetbootMode: "local",
+		State:       "running",
+		MemoryLimit: 2048,
+		OfferType:   "ssd",
+	}
+
+	vpsMap := map[string]VpsData{"abc": {Vps: vps, IPs: []string{"aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111"}}}
+	initMockVps(vpsMap)
+
+	conf, err := getMockConf()
+	require.NoError(t, err)
+
+	//  conf.Endpoint = mockURL
+	logger := testutil.NewLogger(t)
+	d := newVpsDiscovery(&conf, logger)
+
+	ctx := context.Background()
+	tgs, err := d.refresh(ctx)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(tgs))
+
+	tgVps := tgs[0]
+	require.NotNil(t, tgVps)
+	require.NotNil(t, tgVps.Targets)
+	require.Equal(t, 1, len(tgVps.Targets))
+
+	for i, lbls := range []model.LabelSet{
+		{
+			"__address__":                             "aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111",
+			"__meta_ovhcloud_vps_ipv4":                "",
+			"__meta_ovhcloud_vps_ipv6":                "aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111",
+			"__meta_ovhcloud_vps_cluster":             "cluster_test",
+			"__meta_ovhcloud_vps_datacenter":          "[]",
+			"__meta_ovhcloud_vps_disk":                "40",
+			"__meta_ovhcloud_vps_displayName":         "test_name",
+			"__meta_ovhcloud_vps_maximumAdditionalIp": "1",
+			"__meta_ovhcloud_vps_memory":              "2048",
+			"__meta_ovhcloud_vps_memoryLimit":         "2048",
+			"__meta_ovhcloud_vps_model_name":          "model name test",
+			"__meta_ovhcloud_vps_name":                "abc",
+			"__meta_ovhcloud_vps_netbootMode":         "local",
+			"__meta_ovhcloud_vps_offer":               "VPS abc",
+			"__meta_ovhcloud_vps_offerType":           "ssd",
+			"__meta_ovhcloud_vps_slaMonitoring":       "false",
+			"__meta_ovhcloud_vps_state":               "running",
+			"__meta_ovhcloud_vps_vcore":               "1",
+			"__meta_ovhcloud_vps_version":             "2019v1",
+			"__meta_ovhcloud_vps_zone":                "zone",
+			"instance":                                "abc",
+		},
+	} {
+		t.Run(fmt.Sprintf("item %d", i), func(t *testing.T) {
+			require.Equal(t, lbls, tgVps.Targets[i])
+		})
+	}
 
 	// Verify that we don't have pending mocks
 	require.Equal(t, gock.IsDone(), true)

@@ -153,6 +153,9 @@ func (d *vpsDiscovery) refresh(ctx context.Context) ([]*targetgroup.Group, error
 		modelFields := structs.Fields(server.Model)
 		addFieldsOnLabels(modelFields, labels, vpsLabelPrefix)
 
+		IPsFields := structs.Fields(server.IPs)
+		addFieldsOnLabels(IPsFields, labels, vpsLabelPrefix)
+
 		targets = append(targets, labels)
 	}
 

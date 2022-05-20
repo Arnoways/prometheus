@@ -28,6 +28,8 @@ import (
 type DedicatedServerData struct {
 	DedicatedServer DedicatedServer
 	Err             error
+	IPs             []string
+	IPsErr          error
 }
 
 func initMockErrorDedicatedServerList(err error) {
@@ -53,17 +55,29 @@ func initMockDedicatedServer(dedicatedServerList map[string]DedicatedServerData)
 		JSON(dedicatedServerListName)
 
 	for dedicatedServerName := range dedicatedServerList {
-		if dedicatedServerList[dedicatedServerName].Err == nil {
+		if dedicatedServerList[dedicatedServerName].Err != nil {
+			gock.New(mockURL).
+				MatchHeader("Accept", "application/json").
+				Get(fmt.Sprintf("/dedicated/server/%s", dedicatedServerName)).
+				ReplyError(dedicatedServerList[dedicatedServerName].Err)
+		} else {
 			gock.New(mockURL).
 				MatchHeader("Accept", "application/json").
 				Get(fmt.Sprintf("/dedicated/server/%s", dedicatedServerName)).
 				Reply(200).
 				JSON(dedicatedServerList[dedicatedServerName].DedicatedServer)
-		} else {
-			gock.New(mockURL).
-				MatchHeader("Accept", "application/json").
-				Get(fmt.Sprintf("/dedicated/server/%s", dedicatedServerName)).
-				ReplyError(dedicatedServerList[dedicatedServerName].Err)
+			if dedicatedServerList[dedicatedServerName].IPsErr != nil {
+				gock.New(mockURL).
+					MatchHeader("Accept", "application/json").
+					Get(fmt.Sprintf("/dedicated/server/%s/ips", dedicatedServerName)).
+					ReplyError(dedicatedServerList[dedicatedServerName].IPsErr)
+			} else {
+				gock.New(mockURL).
+					MatchHeader("Accept", "application/json").
+					Get(fmt.Sprintf("/dedicated/server/%s/ips", dedicatedServerName)).
+					Reply(200).
+					JSON(dedicatedServerList[dedicatedServerName].IPs)
+			}
 		}
 	}
 }
@@ -114,31 +128,12 @@ func TestErrorDedicatedServerDetail(t *testing.T) {
 
 	initMockMe(12345, map[string]string{"name": "test_name"})
 
-	dedicatedIPs := IPs{
-		IPV4: "1.2.3.5",
-		IPV6: "aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111",
-	}
 	dedicatedServer := DedicatedServer{
-		State:            "test",
-		ProfessionalUse:  true,
-		NewUpgradeSystem: true,
-		IPs:              dedicatedIPs,
-		CommercialRange:  "Advance-1 Gen 2",
-		LinkSpeed:        123,
-		Rack:             "TESTRACK",
-		NoIntervention:   false,
-		Os:               "debian11_64",
-		SupportLevel:     "pro",
-		ServerID:         1234,
-		BootID:           1,
-		Reverse:          "abcde-rev",
-		Datacenter:       "gra3",
-		Name:             "abcde",
-		Monitoring:       true,
+		Monitoring: true,
 	}
 
 	errTest := errors.New("error on get dedicated server detail")
-	initMockDedicatedServer(map[string]DedicatedServerData{"abcde": {DedicatedServer: dedicatedServer}, "errorTest": {Err: errTest}})
+	initMockDedicatedServer(map[string]DedicatedServerData{"abcde": {DedicatedServer: dedicatedServer, IPs: []string{"1.2.3.5", "aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111"}}, "errorTest": {Err: errTest}})
 	conf, err := getMockConf()
 	require.NoError(t, err)
 
@@ -161,20 +156,43 @@ func TestErrorDedicatedServerDetail(t *testing.T) {
 	require.Equal(t, gock.IsDone(), true)
 }
 
-func TestDedicatedServerCall(t *testing.T) {
+func TestBadIpDedicatedServer(t *testing.T) {
 	defer gock.Off()
 
 	initMockMe(12345, map[string]string{"name": "test_name"})
 
-	dedicatedIPs := IPs{
-		IPV4: "1.2.3.5",
-		IPV6: "aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111",
+	dedicatedServer := DedicatedServer{
+		Monitoring: true,
 	}
+
+	initMockDedicatedServer(map[string]DedicatedServerData{"abcde": {DedicatedServer: dedicatedServer, IPs: []string{"1.2.3.5.6"}}})
+	conf, err := getMockConf()
+	require.NoError(t, err)
+
+	//  conf.Endpoint = mockURL
+	logger := testutil.NewLogger(t)
+	d := newDedicatedServerDiscovery(&conf, logger)
+
+	ctx := context.Background()
+	tgs, err := d.refresh(ctx)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(tgs))
+
+	tgDedicatedServer := tgs[0]
+	require.NotNil(t, tgDedicatedServer)
+	require.Nil(t, tgDedicatedServer.Targets)
+}
+
+func TestDedicatedServerCallWithoutIPv4(t *testing.T) {
+	defer gock.Off()
+
+	initMockMe(12345, map[string]string{"name": "test_name"})
+
 	dedicatedServer := DedicatedServer{
 		State:            "test",
 		ProfessionalUse:  true,
 		NewUpgradeSystem: true,
-		IPs:              dedicatedIPs,
 		CommercialRange:  "Advance-1 Gen 2",
 		LinkSpeed:        123,
 		Rack:             "TESTRACK",
@@ -189,7 +207,82 @@ func TestDedicatedServerCall(t *testing.T) {
 		Monitoring:       true,
 	}
 
-	initMockDedicatedServer(map[string]DedicatedServerData{"abcde": {DedicatedServer: dedicatedServer}})
+	initMockDedicatedServer(map[string]DedicatedServerData{"abcde": {DedicatedServer: dedicatedServer, IPs: []string{"aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111"}}})
+	conf, err := getMockConf()
+	require.NoError(t, err)
+
+	//  conf.Endpoint = mockURL
+	logger := testutil.NewLogger(t)
+	d := newDedicatedServerDiscovery(&conf, logger)
+
+	ctx := context.Background()
+	tgs, err := d.refresh(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(tgs))
+
+	tgDedicatedServer := tgs[0]
+	require.NotNil(t, tgDedicatedServer)
+	require.NotNil(t, tgDedicatedServer.Targets)
+	require.Equal(t, 1, len(tgDedicatedServer.Targets))
+
+	for i, lbls := range []model.LabelSet{
+		{
+			"__address__":                                      "aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111",
+			"__meta_ovhcloud_dedicatedServer_bootId":           "1",
+			"__meta_ovhcloud_dedicatedServer_commercialRange":  "Advance-1 Gen 2",
+			"__meta_ovhcloud_dedicatedServer_datacenter":       "gra3",
+			"__meta_ovhcloud_dedicatedServer_ipv4":             "",
+			"__meta_ovhcloud_dedicatedServer_ipv6":             "aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111",
+			"__meta_ovhcloud_dedicatedServer_linkSpeed":        "123",
+			"__meta_ovhcloud_dedicatedServer_monitoring":       "true",
+			"__meta_ovhcloud_dedicatedServer_name":             "abcde",
+			"__meta_ovhcloud_dedicatedServer_newUpgradeSystem": "true",
+			"__meta_ovhcloud_dedicatedServer_noIntervention":   "false",
+			"__meta_ovhcloud_dedicatedServer_os":               "debian11_64",
+			"__meta_ovhcloud_dedicatedServer_professionalUse":  "true",
+			"__meta_ovhcloud_dedicatedServer_rack":             "TESTRACK",
+			"__meta_ovhcloud_dedicatedServer_rescueMail":       "<nil>",
+			"__meta_ovhcloud_dedicatedServer_reverse":          "abcde-rev",
+			"__meta_ovhcloud_dedicatedServer_rootDevice":       "<nil>",
+			"__meta_ovhcloud_dedicatedServer_serverId":         "1234",
+			"__meta_ovhcloud_dedicatedServer_state":            "test",
+			"__meta_ovhcloud_dedicatedServer_supportLevel":     "pro",
+			"instance": "abcde",
+		},
+	} {
+		t.Run(fmt.Sprintf("item %d", i), func(t *testing.T) {
+			require.Equal(t, lbls, tgDedicatedServer.Targets[i])
+		})
+	}
+
+	// Verify that we don't have pending mocks
+	require.Equal(t, gock.IsDone(), true)
+}
+
+func TestDedicatedServerCall(t *testing.T) {
+	defer gock.Off()
+
+	initMockMe(12345, map[string]string{"name": "test_name"})
+
+	dedicatedServer := DedicatedServer{
+		State:            "test",
+		ProfessionalUse:  true,
+		NewUpgradeSystem: true,
+		CommercialRange:  "Advance-1 Gen 2",
+		LinkSpeed:        123,
+		Rack:             "TESTRACK",
+		NoIntervention:   false,
+		Os:               "debian11_64",
+		SupportLevel:     "pro",
+		ServerID:         1234,
+		BootID:           1,
+		Reverse:          "abcde-rev",
+		Datacenter:       "gra3",
+		Name:             "abcde",
+		Monitoring:       true,
+	}
+
+	initMockDedicatedServer(map[string]DedicatedServerData{"abcde": {DedicatedServer: dedicatedServer, IPs: []string{"1.2.3.5", "aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111"}}})
 	conf, err := getMockConf()
 	require.NoError(t, err)
 

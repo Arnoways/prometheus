@@ -89,14 +89,17 @@ func getDedicatedServerDetails(client *ovh.Client, serverName string) (*Dedicate
 	if err != nil {
 		return nil, err
 	}
+
 	reg := regexp.MustCompile(`^(.*)\/\d+$`)
 	for i, ip := range ips {
 		ips[i] = reg.ReplaceAllString(ip, "${1}")
 	}
+
 	parsedIPs, err := ParseIPList(ips)
 	if err != nil {
 		return nil, err
 	}
+
 	dedicatedServerDetails.IPs = *parsedIPs
 	return &dedicatedServerDetails, nil
 }
@@ -140,6 +143,9 @@ func (d *dedicatedServerDiscovery) refresh(ctx context.Context) ([]*targetgroup.
 
 		fields := structs.Fields(server)
 		addFieldsOnLabels(fields, labels, dedicatedServerLabelPrefix)
+
+		IPsFields := structs.Fields(server.IPs)
+		addFieldsOnLabels(IPsFields, labels, dedicatedServerLabelPrefix)
 
 		targets = append(targets, labels)
 	}

@@ -147,7 +147,7 @@ func TestOvhcloudRefresh(t *testing.T) {
 		Monitoring:       true,
 	}
 
-	initMockDedicatedServer(map[string]DedicatedServerData{"abcde": {DedicatedServer: dedicatedServer}})
+	initMockDedicatedServer(map[string]DedicatedServerData{"abcde": {DedicatedServer: dedicatedServer, IPs: []string{"1.2.3.5", "aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111"}}})
 
 	conf, err := getMockConf()
 	require.NoError(t, err)
@@ -357,7 +357,7 @@ func TestDisabledVps(t *testing.T) {
 
 	dedicatedServer := DedicatedServer{}
 
-	dedicatedServerMap := map[string]DedicatedServerData{"abc": {DedicatedServer: dedicatedServer}}
+	dedicatedServerMap := map[string]DedicatedServerData{"abc": {DedicatedServer: dedicatedServer, IPs: []string{"1.2.3.5"}}}
 	initMockDedicatedServer(dedicatedServerMap)
 
 	confString := fmt.Sprintf(`
@@ -420,10 +420,36 @@ endpoint: %s
 	require.ErrorContains(t, err, "missing application key")
 }
 
+func TestParseIPv4Failed(t *testing.T) {
+	_, err := ParseIPList([]string{"A.b"})
+	require.ErrorContains(t, err, "Could not parse IP addresses from list.")
+}
+
+func TestParseZeroIPFailed(t *testing.T) {
+	_, err := ParseIPList([]string{"0.0.0.0"})
+	require.ErrorContains(t, err, "Could not parse IP addresses from list.")
+}
+
+func TestParseVoidIPFailed(t *testing.T) {
+	_, err := ParseIPList([]string{""})
+	require.ErrorContains(t, err, "Could not parse IP addresses from list.")
+}
+
+func TestParseIPv6Ok(t *testing.T) {
+	_, err := ParseIPList([]string{"aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111"})
+	require.NoError(t, err)
+}
+
+func TestParseIPv6Failed(t *testing.T) {
+	_, err := ParseIPList([]string{"bbb:cccc:1111"})
+	require.ErrorContains(t, err, "Could not parse IP addresses from list.")
+}
+
 func TestDiscoverer(t *testing.T) {
 	conf, err := getMockConf()
 	logger := testutil.NewLogger(t)
 	_, err = conf.NewDiscoverer(discovery.DiscovererOptions{
+
 		Logger: logger,
 	})
 
