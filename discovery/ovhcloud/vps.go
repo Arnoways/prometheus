@@ -17,8 +17,6 @@ import (
 	"context"
 	"fmt"
 
-	"inet.af/netaddr"
-
 	"github.com/fatih/structs"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -45,8 +43,7 @@ type Model struct {
 
 //Vps struct from API
 type Vps struct {
-	IPV4               string   `label:"ipv4"`
-	IPV6               string   `label:"ipv6"`
+	IPs                IPs      `json:"ips" label:"-"`
 	Keymap             []string `json:"keymap" label:"-"`
 	Zone               string   `json:"zone"`
 	Model              Model    `json:"model" label:"-"`
@@ -91,16 +88,11 @@ func getVpsDetails(client *ovh.Client, vpsName string) (*Vps, error) {
 		return nil, err
 	}
 
-	for _, ip := range ips {
-		netIP, err := netaddr.ParseIP(ip)
-		if err == nil && netIP.IsValid() && !netIP.IsZero() {
-			if netIP.Is4() {
-				vpsDetails.IPV4 = ip
-			} else {
-				vpsDetails.IPV6 = ip
-			}
-		}
+	parsedIPs, err := ParseIPList(ips)
+	if err != nil {
+		return nil, err
 	}
+	vpsDetails.IPs = *parsedIPs
 
 	return &vpsDetails, nil
 }
@@ -146,8 +138,12 @@ func (d *vpsDiscovery) refresh(ctx context.Context) ([]*targetgroup.Group, error
 
 	var targets []model.LabelSet
 	for _, server := range vpsDetailedList {
+		defaultIP := server.IPs.IPV4
+		if defaultIP == "" {
+			defaultIP = server.IPs.IPV6
+		}
 		labels := model.LabelSet{
-			model.AddressLabel:  model.LabelValue(server.IPV4),
+			model.AddressLabel:  model.LabelValue(defaultIP),
 			model.InstanceLabel: model.LabelValue(server.Name),
 		}
 

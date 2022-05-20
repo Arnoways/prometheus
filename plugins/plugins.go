@@ -58,14 +58,14 @@ import (
 	// Register openstack plugin.
 	_ "github.com/prometheus/prometheus/discovery/openstack"
 
+	// Register ovhcloud plugin.
+	_ "github.com/prometheus/prometheus/discovery/ovhcloud"
+
 	// Register puppetdb plugin.
 	_ "github.com/prometheus/prometheus/discovery/puppetdb"
 
 	// Register scaleway plugin.
 	_ "github.com/prometheus/prometheus/discovery/scaleway"
-
-	// Register ovhcloud plugin.
-	_ "github.com/prometheus/prometheus/discovery/ovhcloud"
 
 	// Register triton plugin.
 	_ "github.com/prometheus/prometheus/discovery/triton"

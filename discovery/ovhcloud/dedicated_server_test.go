@@ -1,3 +1,16 @@
+// Copyright 2021 The Prometheus Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package ovhcloud
 
 import (
@@ -79,7 +92,7 @@ func TestErrorDedicatedServerList(t *testing.T) {
 	defer gock.Off()
 
 	initMockMe(12345, map[string]string{"name": "test_name"})
-	errTest := errors.New("Error on get dedicated server list")
+	errTest := errors.New("error on get dedicated server list")
 	initMockErrorDedicatedServerList(errTest)
 
 	conf, err := getMockConf()
@@ -101,11 +114,15 @@ func TestErrorDedicatedServerDetail(t *testing.T) {
 
 	initMockMe(12345, map[string]string{"name": "test_name"})
 
+	dedicatedIPs := IPs{
+		IPV4: "1.2.3.5",
+		IPV6: "aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111",
+	}
 	dedicatedServer := DedicatedServer{
 		State:            "test",
 		ProfessionalUse:  true,
 		NewUpgradeSystem: true,
-		IP:               "1.2.3.5",
+		IPs:              dedicatedIPs,
 		CommercialRange:  "Advance-1 Gen 2",
 		LinkSpeed:        123,
 		Rack:             "TESTRACK",
@@ -120,7 +137,7 @@ func TestErrorDedicatedServerDetail(t *testing.T) {
 		Monitoring:       true,
 	}
 
-	errTest := errors.New("Error on get dedicated server detail")
+	errTest := errors.New("error on get dedicated server detail")
 	initMockDedicatedServer(map[string]DedicatedServerData{"abcde": {DedicatedServer: dedicatedServer}, "errorTest": {Err: errTest}})
 	conf, err := getMockConf()
 	require.NoError(t, err)
@@ -149,11 +166,15 @@ func TestDedicatedServerCall(t *testing.T) {
 
 	initMockMe(12345, map[string]string{"name": "test_name"})
 
+	dedicatedIPs := IPs{
+		IPV4: "1.2.3.5",
+		IPV6: "aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111",
+	}
 	dedicatedServer := DedicatedServer{
 		State:            "test",
 		ProfessionalUse:  true,
 		NewUpgradeSystem: true,
-		IP:               "1.2.3.5",
+		IPs:              dedicatedIPs,
 		CommercialRange:  "Advance-1 Gen 2",
 		LinkSpeed:        123,
 		Rack:             "TESTRACK",
@@ -194,6 +215,7 @@ func TestDedicatedServerCall(t *testing.T) {
 			"__meta_ovhcloud_dedicatedServer_commercialRange":  "Advance-1 Gen 2",
 			"__meta_ovhcloud_dedicatedServer_datacenter":       "gra3",
 			"__meta_ovhcloud_dedicatedServer_ipv4":             "1.2.3.5",
+			"__meta_ovhcloud_dedicatedServer_ipv6":             "aaaa:bbbb:cccc:dddd:eeee:ffff:0000:1111",
 			"__meta_ovhcloud_dedicatedServer_linkSpeed":        "123",
 			"__meta_ovhcloud_dedicatedServer_monitoring":       "true",
 			"__meta_ovhcloud_dedicatedServer_name":             "abcde",

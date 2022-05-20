@@ -16,6 +16,7 @@ package ovhcloud
 import (
 	"context"
 	"fmt"
+	"github.com/grafana/regexp"
 
 	"github.com/fatih/structs"
 	"github.com/go-kit/log"
@@ -36,7 +37,7 @@ type DedicatedServer struct {
 	State            string  `json:"state"`
 	RescueMail       *string `json:"rescueMail"`
 	NewUpgradeSystem bool    `json:"newUpgradeSystem"`
-	IP               string  `json:"ip" label:"ipv4"`
+	IPs              IPs     `json:"ips" label:"-"`
 	CommercialRange  string  `json:"commercialRange"`
 	LinkSpeed        int     `json:"linkSpeed"`
 	Rack             string  `json:"rack"`
@@ -76,12 +77,27 @@ func getDedicatedServerList(client *ovh.Client) ([]string, error) {
 	return dedicatedListName, nil
 }
 
-func getDedicateServerDetails(client *ovh.Client, serverName string) (*DedicatedServer, error) {
+func getDedicatedServerDetails(client *ovh.Client, serverName string) (*DedicatedServer, error) {
 	var dedicatedServerDetails DedicatedServer
 	err := client.Get(fmt.Sprintf("%s/%s", dedicatedServerAPIPath, serverName), &dedicatedServerDetails)
 	if err != nil {
 		return nil, err
 	}
+
+	var ips []string
+	err = client.Get(fmt.Sprintf("%s/%s/ips", dedicatedServerAPIPath, serverName), &ips)
+	if err != nil {
+		return nil, err
+	}
+	reg := regexp.MustCompile(`^(.*)\/\d+$`)
+	for i, ip := range ips {
+		ips[i] = reg.ReplaceAllString(ip, "${1}")
+	}
+	parsedIPs, err := ParseIPList(ips)
+	if err != nil {
+		return nil, err
+	}
+	dedicatedServerDetails.IPs = *parsedIPs
 	return &dedicatedServerDetails, nil
 }
 
@@ -100,7 +116,7 @@ func (d *dedicatedServerDiscovery) refresh(ctx context.Context) ([]*targetgroup.
 		return nil, err
 	}
 	for _, dedicatedServerName := range dedicatedServerList {
-		dedicatedServer, err := getDedicateServerDetails(client, dedicatedServerName)
+		dedicatedServer, err := getDedicatedServerDetails(client, dedicatedServerName)
 		if err != nil {
 			err := level.Warn(d.logger).Log("msg", fmt.Sprintf("%s: Could not get details of %s", d.getSource(), dedicatedServerName), "err", err.Error())
 			if err != nil {
@@ -113,8 +129,12 @@ func (d *dedicatedServerDiscovery) refresh(ctx context.Context) ([]*targetgroup.
 	var targets []model.LabelSet
 
 	for _, server := range dedicatedServerDetailedList {
+		defaultIP := server.IPs.IPV4
+		if defaultIP == "" {
+			defaultIP = server.IPs.IPV6
+		}
 		labels := model.LabelSet{
-			model.AddressLabel:  model.LabelValue(server.IP),
+			model.AddressLabel:  model.LabelValue(defaultIP),
 			model.InstanceLabel: model.LabelValue(server.Name),
 		}
 

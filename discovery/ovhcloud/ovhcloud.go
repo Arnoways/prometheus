@@ -16,6 +16,8 @@ package ovhcloud
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
+	"inet.af/netaddr"
 	"time"
 
 	"github.com/fatih/structs"
@@ -86,6 +88,11 @@ type SDConfig struct {
 	DisabledSources   map[string]bool `yaml:"-"`
 }
 
+type IPs struct {
+	IPV4 string `json:"ipv4" label:"ipv4"`
+	IPV6 string `json:"ipv6" label:"ipv6"`
+}
+
 //Name get name
 func (c SDConfig) Name() string {
 	return "ovhcloud"
@@ -131,6 +138,24 @@ func (c SDConfig) NewDiscoverer(options discovery.DiscovererOptions) (discovery.
 
 func init() {
 	discovery.RegisterConfig(&SDConfig{})
+}
+
+func ParseIPList(ipList []string) (*IPs, error) {
+	var IPs IPs
+	for _, ip := range ipList {
+		netIP, err := netaddr.ParseIP(ip)
+		if err == nil && netIP.IsValid() && !netIP.IsZero() {
+			if netIP.Is4() {
+				IPs.IPV4 = ip
+			} else if netIP.Is6() {
+				IPs.IPV6 = ip
+			}
+		}
+	}
+	if IPs.IPV4 == "" && IPs.IPV6 == "" {
+		return nil, errors.New("Could not parse IP addresses from list.")
+	}
+	return &IPs, nil
 }
 
 // NewDiscovery ovhcloud create a newOvhCloudDiscovery and call refresh
