@@ -43,6 +43,7 @@ endpoint: %s
 application_key: %s
 application_secret: %s
 consumer_key: %s
+refresh_interval: 1m
 `, mockURL, testApplicationKey, testApplicationSecret, testConsumerKey)
 
 	return getMockConfFromString(confString)
@@ -325,6 +326,7 @@ endpoint: %s
 application_key: %s
 application_secret: %s
 consumer_key: %s
+refresh_interval: 1m
 sources_to_disable: [ovhcloud_dedicated_server]
 `, mockURL, testApplicationKey, testApplicationSecret, testConsumerKey)
 
@@ -365,6 +367,7 @@ endpoint: %s
 application_key: %s
 application_secret: %s
 consumer_key: %s
+refresh_interval: 1m
 sources_to_disable: [ovhcloud_vps]
 `, mockURL, testApplicationKey, testApplicationSecret, testConsumerKey)
 
