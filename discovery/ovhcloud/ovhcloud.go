@@ -72,15 +72,20 @@ type PartialMe struct {
 	Firstname string `json:"firstname"`
 }
 
+type Source struct {
+	Name string `validate:"oneof=ovhcloud_vps ovhcloud_dedicated_server"`
+}
+
 // SDConfig sd config
 type SDConfig struct {
-	Endpoint          string          `yaml:"endpoint" validate:"required"`
-	ApplicationKey    string          `yaml:"application_key" validate:"required"`
-	ApplicationSecret string          `yaml:"application_secret" validate:"required"`
-	ConsumerKey       string          `yaml:"consumer_key" validate:"required"`
-	RefreshInterval   model.Duration  `yaml:"refresh_interval" validate:"required"`
-	SourcesToDisable  []string        `yaml:"sources_to_disable"`
-	DisabledSources   map[string]bool `yaml:"-"`
+	Endpoint              string          `yaml:"endpoint" validate:"required"`
+	ApplicationKey        string          `yaml:"application_key" validate:"required"`
+	ApplicationSecret     string          `yaml:"application_secret" validate:"required"`
+	ConsumerKey           string          `yaml:"consumer_key" validate:"required"`
+	RefreshInterval       model.Duration  `yaml:"refresh_interval" validate:"required"`
+	ListOfSourceToDisable []string        `yaml:"sources_to_disable"`
+	SourcesToDisable      []Source        `yaml:"-"`
+	DisabledSources       map[string]bool `yaml:"-"`
 }
 
 type IPs struct {
@@ -101,6 +106,12 @@ func (c *SDConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
+	if len(c.ListOfSourceToDisable) != 0 {
+		for _, source := range c.ListOfSourceToDisable {
+			c.SourcesToDisable = append(c.SourcesToDisable, Source{Name: source})
+		}
+	}
+
 	validate := validator.New()
 
 	if err := validate.Struct(c); err != nil {
@@ -108,8 +119,8 @@ func (c *SDConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	c.DisabledSources = map[string]bool{}
-	for _, sourceName := range c.SourcesToDisable {
-		c.DisabledSources[sourceName] = true
+	for _, source := range c.SourcesToDisable {
+		c.DisabledSources[source.Name] = true
 	}
 
 	client, err := c.CreateClient()
