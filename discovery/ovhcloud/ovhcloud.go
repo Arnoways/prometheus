@@ -78,7 +78,7 @@ type SDConfig struct {
 	ApplicationKey    string          `yaml:"application_key" validate:"required"`
 	ApplicationSecret string          `yaml:"application_secret" validate:"required"`
 	ConsumerKey       string          `yaml:"consumer_key" validate:"required"`
-	RefreshInterval   model.Duration  `yaml:"refresh_interval"`
+	RefreshInterval   model.Duration  `yaml:"refresh_interval" validate:"required"`
 	SourcesToDisable  []string        `yaml:"sources_to_disable"`
 	DisabledSources   map[string]bool `yaml:"-"`
 }
