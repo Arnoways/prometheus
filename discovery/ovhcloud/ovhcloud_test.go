@@ -227,7 +227,7 @@ consumer_key: %s
 
 	conf, _ := getMockConfFromString(confString)
 
-	_, err := conf.CreateClient()
+	_, err := CreateClient(&conf)
 
 	require.ErrorContains(t, err, "unknown endpoint")
 }
@@ -240,7 +240,7 @@ endpoint: %s
 
 	conf, _ := getMockConfFromString(confString)
 
-	_, err := conf.CreateClient()
+	_, err := CreateClient(&conf)
 
 	require.ErrorContains(t, err, "missing application key")
 }

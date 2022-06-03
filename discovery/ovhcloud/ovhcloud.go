@@ -26,6 +26,7 @@ import (
 	"github.com/grafana/regexp"
 	"github.com/ovh/go-ovh/ovh"
 	"github.com/pkg/errors"
+	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 
 	"github.com/prometheus/prometheus/discovery"
@@ -71,7 +72,7 @@ type AuthDetails struct {
 type SDConfig struct {
 	Endpoint          string         `yaml:"endpoint" validate:"required"`
 	ApplicationKey    string         `yaml:"application_key" validate:"required"`
-	ApplicationSecret string         `yaml:"application_secret" validate:"required"`
+	ApplicationSecret config.Secret  `yaml:"application_secret" validate:"required"`
 	ConsumerKey       string         `yaml:"consumer_key" validate:"required"`
 	RefreshInterval   model.Duration `yaml:"refresh_interval" validate:"required"`
 	Service           string         `yaml:"service" validate:"required,oneof=dedicated_server vps"`
@@ -103,14 +104,13 @@ func (c *SDConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return fmt.Errorf("failed to validate SDConfig err: %w", err)
 	}
 
-	client, err := c.CreateClient()
+	client, err := CreateClient(c)
 	if err != nil {
 		return err
 	}
 
 	if !c.NoAuthTest {
 		var authDetails AuthDetails
-		fmt.Print("Test auth/details\n")
 		return client.Get("/auth/details", &authDetails)
 	}
 
@@ -118,13 +118,13 @@ func (c *SDConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // CreateClient get client
-func (c SDConfig) CreateClient() (*ovh.Client, error) {
-	return ovh.NewClient(c.Endpoint, c.ApplicationKey, c.ApplicationSecret, c.ConsumerKey)
+func CreateClient(config *SDConfig) (*ovh.Client, error) {
+	return ovh.NewClient(config.Endpoint, config.ApplicationKey, string(config.ApplicationSecret), config.ConsumerKey)
 }
 
 // NewDiscoverer new discoverer
-func (c SDConfig) NewDiscoverer(options discovery.DiscovererOptions) (discovery.Discoverer, error) {
-	return NewDiscovery(&c, options.Logger)
+func (c *SDConfig) NewDiscoverer(options discovery.DiscovererOptions) (discovery.Discoverer, error) {
+	return NewDiscovery(c, options.Logger)
 }
 
 func init() {
