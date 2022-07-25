@@ -44,6 +44,7 @@ var (
 	ovhCloudApplicationSecretTest = config.Secret("9ufkBmLaTQ9nz5yMUlg79taH0GNnzDjk")
 	ovhCloudConsumerKeyTest       = "5mBuy6SUQcRw2ZUxg0cG68BoDKpED4KY"
 )
+
 func addFieldsOnLabels(fields []*structs.Field, labels model.LabelSet, prefix string) {
 	for _, f := range fields {
 		labelName := f.Tag("label")
