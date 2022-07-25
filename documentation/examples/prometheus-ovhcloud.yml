@@ -14,3 +14,4 @@ scrape_configs:
         application_secret: XXX
         consumer_key: XXX
         refresh_interval: 1m
+
